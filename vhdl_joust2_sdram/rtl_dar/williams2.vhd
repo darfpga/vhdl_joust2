@@ -319,7 +319,7 @@ begin
 		
 			if (pixel_cnt = "101") and (en_pixel = '1' ) then
 				hcnt <= hcnt + '1';
-				if hcnt = "111111" then
+				if hcnt = "111101" then
 					if vcnt = '1'&X"FF" then
 						vcnt <= '0'&X"FC";
 					else
@@ -383,23 +383,14 @@ end process;
 
 with xscroll(2 downto 0) select
 bg_pixels_shifted <= 
-	bg_pixels_3 when "000",
-	bg_pixels_4 when "001",
+	bg_pixels_7 when "000",
+	bg_pixels_6 when "001",
 	bg_pixels_5 when "010",
-	bg_pixels_6 when "011",
-	bg_pixels_7 when "100",
-	bg_pixels_8 when "101",
-	bg_pixels_9 when "110",
-	bg_pixels_10 when others;
-	
---	bg_pixels_0 when "000",
---	bg_pixels_1 when "001",
---	bg_pixels_2 when "010",
---	bg_pixels_3 when "011",
---	bg_pixels_4 when "100",
---	bg_pixels_5 when "101",
---	bg_pixels_6 when "110",
---	bg_pixels_7 when others;
+	bg_pixels_4 when "011",
+	bg_pixels_3 when "100",
+	bg_pixels_2 when "101",
+	bg_pixels_1 when "110",
+	bg_pixels_0 when others;
 	
 --	mux bus addr and pixels data to palette addr
 palette_addr <=
@@ -467,7 +458,7 @@ pia_io1_pb_i <= x"ff";
 pia_io2_pa_i <= sw_coktail_table & "000" & btn_coin & btn_high_score_reset & btn_advance & btn_auto_up; 
 
 -- video syncs to pia
-vcnt_240  <= '0' when vcnt = '1'&X"F0" else '1';
+vcnt_240  <= '1' when vcnt = '1'&X"F0" else '0';
 cnt_4ms   <= vcnt(5);
 --cnt_4ms_o <= vcnt(5);
 
