@@ -5,7 +5,7 @@
 -- github.com/darfpga
 ---------------------------------------------------------------------------------
 --
--- release rev 00 : initial release
+-- release rev 01 : initial release
 --
 ---------------------------------------------------------------------------------
 -- Educational use only
@@ -18,15 +18,19 @@
 -- Don't forget to set device configuration mode with memory initialization 
 --  (Assignments/Device/Pin options/Configuration mode)
 ---------------------------------------------------------------------------------
---  8 bits write
---  8 bits read
+--  8  bits write
+--  32 bits read
 ---------------------------------------------------------------------------------
--- Program sdram content with this turkey shoot rom bank loader before programming
--- turkey shoot game core :
+-- Program sdram content with this joust2 rom loader before programming joust2 
+-- game core
 --
--- 1) program DE10_lite with joust2 sdram loader
+-- 1) program DE10_lite with joust2 sdram loader 1
 -- 2) press key(0) at least once (digit blinks during programming)
--- 3) program DE10_lite with joust2 core without switching DE10_lite OFF
+
+-- 3) program DE10_lite with joust2 sdram loader 2
+-- 4) press key(0) at least once (digit blinks during programming)
+
+-- 5) program DE10_lite with joust2 core without switching DE10_lite OFF
 --
 ---------------------------------------------------------------------------------
 
@@ -125,20 +129,24 @@ port (
  alias reset_n         : std_logic is key(0);
 
  signal rom_addr  : std_logic_vector(17 downto 0);
+ signal addr_mask : std_logic_vector(17 downto 0);
  signal rom_we    : std_logic;
  signal rom_rd    : std_logic;
  signal rom_di    : std_logic_vector( 7 downto 0);
  signal sm_cycle  : std_logic_vector( 4 downto 0);
  signal rd        : std_logic;
  
+ signal sdram_data: std_logic_vector(15 downto 0); 
  signal rom_data  : std_logic_vector(15 downto 0); 
+ signal rom_do    : std_logic_vector( 7 downto 0); 
  signal timer     : std_logic_vector( 7 downto 0);
  
- signal sp_rom_addr    : std_logic_vector(14 downto 0);
  signal rom_bank_a_do  : std_logic_vector( 7 downto 0);
  signal rom_bank_b_do  : std_logic_vector( 7 downto 0);
  signal rom_bank_c_do  : std_logic_vector( 7 downto 0);
  signal rom_bank_d_do  : std_logic_vector( 7 downto 0);
+ signal rom_prog1_do   : std_logic_vector( 7 downto 0);
+ signal rom_prog2_do   : std_logic_vector( 7 downto 0);
 
 begin
 
@@ -175,7 +183,7 @@ port map(
 	init     => not pll_locked, -- init signal after FPGA config to initialize RAM
 	clk      => clock_120,	    -- sdram is accessed at up to 128MHz
 	
-	addr     => "0000000" & rom_addr, -- 25 bit byte address
+	addr     => "0000000" & (rom_addr and addr_mask), -- 25 bit byte address
 	
 	we       => rom_we,        -- requests write
 	di       => rom_di,        -- data input
@@ -197,11 +205,13 @@ begin
 
 		if rising_edge(clock_40) then
 
-			if rom_rd = '0' then 
+			if rom_rd = '0' then
+			
+				addr_mask <= (others => '1');
 		
 				if timer = x"2F" then 
 
-					if rom_addr < x"1FFFF" then   -- joust2 128 ko = 32Ko*4
+					if rom_addr < x"27FFF" then   -- joust2 32Ko*4 + 4Ko (repeated x4) + 8Ko (repeated x2)
 						rom_addr <= rom_addr + 1;
 					else
 						rom_rd <= '1';
@@ -217,7 +227,10 @@ begin
 				if timer > 6 then rom_we <= '0'; end if;
 			
 			else 
-				rom_addr <= '0'&sw(9 downto 8)&"0000000" & sw(7 downto 0); 
+			
+				addr_mask(1 downto 0) <= "00";
+
+				rom_addr <= sw(9 downto 7)&"00000000"&sw(6 downto 0); 
 				
 		
 				if timer = x"0F" then 				
@@ -238,17 +251,39 @@ begin
 end process;
 
 rom_di <=
-rom_bank_a_do when rom_addr(16 downto 15) = "00" else
-rom_bank_b_do when rom_addr(16 downto 15) = "01" else
-rom_bank_c_do when rom_addr(16 downto 15) = "10" else
-rom_bank_d_do when rom_addr(16 downto 15) = "11";
+	rom_bank_a_do when rom_addr(17 downto 15) = "000"  else -- 00000-07FFF
+	rom_bank_b_do when rom_addr(17 downto 15) = "001"  else -- 08000-0FFFF
+	rom_bank_c_do when rom_addr(17 downto 15) = "010"  else -- 10000-17FFF
+	rom_bank_d_do when rom_addr(17 downto 15) = "011"  else -- 18000-1FFFF
+	rom_prog1_do  when rom_addr(17 downto 14) = "1000" else -- 20000-23FFF - rom repeated *4
+	rom_prog2_do  when rom_addr(17 downto 14) = "1001" else -- 24000-27FFF - rom repeated *2
+ 	x"00";
  
 -- debug/display
 
 process (clock_120)
 begin
 	if rising_edge(clock_120) then
-    rom_data <= dram_dq;
+		sdram_data <= dram_dq;
+		if rom_addr(1) = '0' then		
+			if (sm_cycle = 7) then
+				rom_data <= sdram_data;
+				if rom_addr(0) = '0' then
+					rom_do <= sdram_data(15 downto 8);
+				else
+					rom_do <= sdram_data( 7 downto 0);
+				end if;			
+			end if;
+		else
+			if (sm_cycle = 8) then
+				rom_data <= sdram_data;
+				if rom_addr(0) = '0' then
+					rom_do <= sdram_data(15 downto 8);
+				else
+					rom_do <= sdram_data( 7 downto 0);
+				end if;			
+			end if;		
+		end if;
 	end if;
 end process;
 
@@ -256,6 +291,9 @@ h0 : entity work.decodeur_7_seg port map(rom_data( 3 downto  0),hex0);
 h1 : entity work.decodeur_7_seg port map(rom_data( 7 downto  4),hex1);
 h2 : entity work.decodeur_7_seg port map(rom_data(11 downto  8),hex2);
 h3 : entity work.decodeur_7_seg port map(rom_data(15 downto 12),hex3);
+
+h4 : entity work.decodeur_7_seg port map(rom_do(3 downto 0),hex4);
+h5 : entity work.decodeur_7_seg port map(rom_do(7 downto 4),hex5);
 
 -- ROMS
 
@@ -285,6 +323,20 @@ port map(
  clk  => clock_40,
  addr => rom_addr(14 downto 0),
  data => rom_bank_d_do
+);
+
+prog1_rom : entity work.joust2_prog1
+port map(
+ clk  => clock_40,
+ addr => rom_addr(11 downto 0),
+ data => rom_prog1_do
+);
+
+prog2_rom : entity work.joust2_prog2
+port map(
+ clk  => clock_40,
+ addr => rom_addr(12 downto 0),
+ data => rom_prog2_do
 );
 
 

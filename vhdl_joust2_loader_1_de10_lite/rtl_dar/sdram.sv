@@ -1,7 +1,7 @@
 //
 // sdram.v
 //
-//	(Darfpga configuration for 1x8bits write / 8x16bits read - 01/12/2019)
+//	(Darfpga configuration for 1x8bits write / 2x16bits read - 28/03/2022)
 //
 // sdram controller implementation for the MiST board adaptation
 // of Luddes NES core
@@ -49,7 +49,7 @@ module sdram (
 
 // burst 8 data configured
 localparam RASCAS_DELAY   = 3'd3;   // tRCD=20ns -> 3 cycles@130MHz
-localparam BURST_LENGTH   = 3'b000; // 000=1, 001=2, 010=4, 011=8
+localparam BURST_LENGTH   = 3'b001; // 000=1, 001=2, 010=4, 011=8
 localparam ACCESS_TYPE    = 1'b0;   // 0=sequential, 1=interleaved
 localparam CAS_LATENCY    = 3'd2;   // 2/3 allowed
 localparam OP_MODE        = 2'b00;  // only 00 (standard operation) allowed
