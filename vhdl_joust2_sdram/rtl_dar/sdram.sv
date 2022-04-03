@@ -82,13 +82,13 @@ assign sm_cycle = q;
 // --------------------------- startup/reset ---------------------------
 // ---------------------------------------------------------------------
 
-// wait 700us (85000 cycles) after FPGA config is done before going
-// into normal operation. Initialize the ram in the last 16 reset cycles (cycles 15-0)
-reg [16:0] reset;
+// wait min 100us (12000 cycles) after FPGA config is done before going
+// into normal operation. Initialize the ram in the last reset cycles
+reg [15:0] reset;
 always @(posedge clk) begin
-	if(init)	reset <= 17'h14c08;
-	else if((q == STATE_LAST) && (reset != 0))
-		reset <= reset - 17'd1;
+	if(init)	reset <= 15'd15000;
+	else if(reset != 0)
+		reset <= reset - 15'd1;
 end
 
 // ---------------------------------------------------------------------
@@ -121,7 +121,9 @@ assign sd_we  = sd_cmd[0];
 assign sd_data = we?{di, di}:16'bZZZZZZZZZZZZZZZZ;
 
 wire [3:0] reset_cmd = 
-	((q == STATE_CMD_START) && (reset == 13))?CMD_PRECHARGE:
+	((q == STATE_CMD_START) && (reset == 96))?CMD_PRECHARGE:
+	((q == STATE_CMD_START) && (reset == 64))?CMD_AUTO_REFRESH:
+	((q == STATE_CMD_START) && (reset == 32))?CMD_AUTO_REFRESH:
 	((q == STATE_CMD_START) && (reset ==  2))?CMD_LOAD_MODE:
 	CMD_INHIBIT;
 

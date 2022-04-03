@@ -271,8 +271,8 @@ begin
 process (clock_12) 
 begin
 	if rising_edge(clock_12) then 
---		dbg_out(15 downto 0) <= cpu_addr;
-		dbg_out(15 downto 0) <= sound_cpu_addr;		
+		dbg_out(15 downto 0) <= cpu_addr;
+--		dbg_out(15 downto 0) <= sound_cpu_addr;		
 	end if;
 end process;
 		

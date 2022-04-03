@@ -183,7 +183,9 @@ port (
  signal pwm_accumulator_l : std_logic_vector(12 downto 0);
  signal pwm_accumulator_r : std_logic_vector(12 downto 0);
  
- alias reset_n         : std_logic is key(0);
+ signal reset_cnt      : std_logic_vector(15 downto 0);
+ signal reset_n        : std_logic;
+ 
  alias ps2_clk         : std_logic is gpio(35); --gpio(0);
  alias ps2_dat         : std_logic is gpio(34); --gpio(1);
  alias pwm_audio_out_l : std_logic is gpio(1);  --gpio(2);
@@ -206,6 +208,23 @@ signal dbg_out : std_logic_vector(31 downto 0);
 begin
 
 reset <= not reset_n;
+
+-- reset last around 200us (~100us for sdram init)
+process (clock_12, key(0), pll_locked)
+begin
+	if key(0) = '0' or pll_locked = '0' then
+		reset_cnt <= (others => '0');
+		reset_n <= '0';
+	else
+		if rising_edge(clock_12) then
+			if reset_cnt < 2400 then 
+				reset_cnt <= reset_cnt + 1;
+			else
+				reset_n <= '1';
+			end if;
+		end if;
+	end if;
+end process;
 
 -- tv15Khz_mode <= sw();
 
@@ -244,7 +263,7 @@ port map(
 	sd_cas  => dram_cas_n, -- columns address select
 
 	-- cpu/chipset interface
-	init     => (not pll_locked) or reset, -- init signal after FPGA config to initialize RAM
+	init     => not pll_locked, -- init signal after FPGA config to initialize RAM
 	clk      => clock_120,	    -- sdram is accessed at up to 128MHz
 	
 	addr     => "0000000" & (rom_addr and "11"&x"FFFC") , -- 25 bit byte address
